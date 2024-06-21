@@ -1,7 +1,8 @@
 name: unlock_detector
-description: "A new Flutter plugin project."
+description: "A Flutter Package to detect if app running while phone is locked or not."
 version: 0.0.1
-homepage:
+repository: https://github.com/mustafa-707/unlock_detector
+issue_tracker: https://github.com/mustafa-707/unlock_detector/issues
 
 environment:
   sdk: ">=3.4.3 <4.0.0"
