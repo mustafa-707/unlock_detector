@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 
 class UnlockDetector {
   static const MethodChannel _methodChannel = MethodChannel('unlock_detector');
-  static const EventChannel _eventChannel = EventChannel('unlock_detector_stream');
+  static const EventChannel _eventChannel = EventChannel(
+    'unlock_detector_stream',
+  );
 
   Stream<String>? _lockUnlockStream;
 
@@ -18,7 +20,9 @@ class UnlockDetector {
   }
 
   UnlockDetector._internal() {
-    _lockUnlockStream = _eventChannel.receiveBroadcastStream().map((event) => event.toString());
+    _lockUnlockStream = _eventChannel.receiveBroadcastStream().map(
+          (event) => event.toString(),
+        );
   }
 
   // Start detection
