@@ -1,5 +1,7 @@
 # Unlock Detector Plugin for Flutter
 
+[![Pub Package](https://img.shields.io/pub/v/unlock_detector.svg)](https://pub.dev/packages/unlock_detector)
+
 This Flutter plugin allows you to detect screen lock and unlock events on both Android and iOS devices.
 
 ## Features
