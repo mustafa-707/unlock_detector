@@ -48,16 +48,16 @@ class UnlockDetector {
   }
 
   /// it must to be called before start detection
-  Future<void> initalize() async {
+  Future<void> initialize() async {
     try {
       await _methodChannel.invokeMethod('detect_on');
     } on PlatformException catch (e) {
-      log("[unlock_detector] :: Failed to initalize: '${e.message}'.");
+      log("[unlock_detector] :: Failed to initialize: '${e.message}'.");
     } catch (e) {
-      log("[unlock_detector] :: Failed to initalize: '$e'.");
+      log("[unlock_detector] :: Failed to initialize: '$e'.");
     }
   }
 
   /// stream of lock/unlock events
-  Stream<UnlockDetectorStatus>? get lockUnlockStream => _lockUnlockStream;
+  Stream<UnlockDetectorStatus>? get stream => _lockUnlockStream;
 }

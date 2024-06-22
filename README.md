@@ -17,25 +17,48 @@ dependencies:
   unlock_detector:
 ```
 
+Sure, here is a more detailed and explanatory version of the README usage section:
+
+---
+
 ## Usage
 
+To get started with the Unlock Detector package, follow these steps:
+
+1. **Initialize the UnlockDetector instance:**
+
+   Create an instance of `UnlockDetector` and initialize it using the `initialize` method. This sets up the detector to start monitoring the lock/unlock status of the device.
+
+   ```dart
+    final UnlockDetector _unlockDetector = UnlockDetector();
+      ...
+    _unlockDetector.initialize(); // Start detection
+   ```
+
+2. **Set up a listener for the lock/unlock stream:**
+
+   Use the `stream` property to listen for changes in the lock/unlock status. The stream provides real-time updates whenever the device's lock state changes.
+
+   ```dart
+   String _status = 'Unknown'; // Initial status
+
+   _unlockDetector.stream?.listen((event) {
+     setState(() {
+       _status = event; // Update status with the latest event
+     });
+   });
+   ```
+
+3. **Display the lock/unlock status in your UI:**
+
+   Use the `_status` variable to display the current lock/unlock status in your app's UI. In this example, the status is displayed in the center of the screen.
+
 ```dart
-  final UnlockDetector _unlockDetector = UnlockDetector();
-  String _status = 'Unknown';
-
-    _unlockDetector.startDetection();
-    _unlockDetector.lockUnlockStream?.listen((event) {
-      setState(() {
-        _status = event;
-      });
-    });
-
-    ...
+ ...
         body: Center(
           child: Text('Lock/Unlock Status: $_status'),
         ),
-           ...
-
+          ...
 ```
 
 ## Support

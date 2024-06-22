@@ -1,5 +1,11 @@
 # CHANGES
 
+## 0.0.6
+
+- change calls names `startDetection` it changed to `initialize`
+- change calls names `lockUnlockStream` it changed to `stream`
+- update `Readme` with new names changes
+
 ## 0.0.5
 
 - update `changelog` file.

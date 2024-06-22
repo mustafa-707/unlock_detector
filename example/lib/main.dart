@@ -21,10 +21,10 @@ class _ExampleWidgetState extends State<ExampleWidget> {
   @override
   void initState() {
     super.initState();
-    _unlockDetector.initalize();
+    _unlockDetector.initialize();
 
     // here we will listen for lock/unlock events
-    _unlockDetector.lockUnlockStream?.listen((status) {
+    _unlockDetector.stream?.listen((status) {
       setState(() {
         _status = status;
       });
