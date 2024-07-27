@@ -23,41 +23,36 @@ enum UnlockDetectorStatus {
 
 class UnlockDetector {
   static const MethodChannel _methodChannel = MethodChannel('unlock_detector');
-  static const EventChannel _eventChannel = EventChannel(
-    'unlock_detector_stream',
-  );
+  static const EventChannel _eventChannel =
+      EventChannel('unlock_detector_stream');
 
-  Stream<UnlockDetectorStatus>? _lockUnlockStream;
+  static final Stream<UnlockDetectorStatus> _lockUnlockStream =
+      _eventChannel.receiveBroadcastStream().map(
+            (event) => switch (event.toString()) {
+              "LOCKED" => UnlockDetectorStatus.locked,
+              "UNLOCKED" => UnlockDetectorStatus.unlocked,
+              "SCREEN_ON" => UnlockDetectorStatus.screenOn,
+              _ => UnlockDetectorStatus.unknown
+            },
+          );
 
-  // Singleton pattern
-  static final UnlockDetector _instance = UnlockDetector._internal();
-
-  factory UnlockDetector() {
-    return _instance;
-  }
-
-  UnlockDetector._internal() {
-    _lockUnlockStream = _eventChannel.receiveBroadcastStream().map(
-          (event) => switch (event.toString()) {
-            "LOCKED" => UnlockDetectorStatus.locked,
-            "UNLOCKED" => UnlockDetectorStatus.unlocked,
-            "SCREEN_ON" => UnlockDetectorStatus.screenOn,
-            _ => UnlockDetectorStatus.unknown
-          },
-        );
-  }
-
-  /// it must to be called before start detection
-  Future<void> initialize() async {
+  static Future<void> initialize() async {
     try {
       await _methodChannel.invokeMethod('detect_on');
     } on PlatformException catch (e) {
-      log("[unlock_detector] :: Failed to initialize: '${e.message}'.");
+      log("[unlock_detector] :: Failed: '${e.message}'.");
     } catch (e) {
-      log("[unlock_detector] :: Failed to initialize: '$e'.");
+      log("[unlock_detector] :: Failed: '$e'.");
     }
   }
 
-  /// stream of lock/unlock events
-  Stream<UnlockDetectorStatus>? get stream => _lockUnlockStream;
+  /// Stream of lock/unlock events that can be accessed statically
+  static Stream<UnlockDetectorStatus> get stream {
+    // Ensure initialization happens only once
+    _initializeOnce;
+    return _lockUnlockStream;
+  }
+
+  // Ensures that the initialize method is called only once
+  static final Future<void> _initializeOnce = initialize();
 }

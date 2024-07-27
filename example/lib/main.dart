@@ -15,16 +15,14 @@ class ExampleWidget extends StatefulWidget {
 }
 
 class _ExampleWidgetState extends State<ExampleWidget> {
-  final UnlockDetector _unlockDetector = UnlockDetector();
   UnlockDetectorStatus _status = UnlockDetectorStatus.unknown;
 
   @override
   void initState() {
     super.initState();
-    _unlockDetector.initialize();
 
     // here we will listen for lock/unlock events
-    _unlockDetector.stream?.listen((status) {
+    UnlockDetector.stream.listen((status) {
       setState(() {
         _status = status;
       });

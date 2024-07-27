@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.util.Log
 import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
@@ -27,15 +26,12 @@ class UnlockDetectorPlugin: FlutterPlugin, MethodCallHandler {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_USER_PRESENT -> {
-                    Log.d("unlock_detector", "Screen unlocked")
                     eventSink?.success("UNLOCKED")
                 }
                 Intent.ACTION_SCREEN_OFF -> {
-                    Log.d("unlock_detector", "Screen locked")
                     eventSink?.success("LOCKED")
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    Log.d("unlock_detector", "Screen turned on")
                     eventSink?.success("SCREEN_ON")
                 }
             }
@@ -48,7 +44,6 @@ class UnlockDetectorPlugin: FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(this)
         eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                Log.d("unlock_detector", "onListen called")
                 eventSink = events
                 val filter = IntentFilter().apply {
                     addAction(Intent.ACTION_USER_PRESENT)
@@ -59,7 +54,6 @@ class UnlockDetectorPlugin: FlutterPlugin, MethodCallHandler {
             }
 
             override fun onCancel(arguments: Any?) {
-                Log.d("unlock_detector", "Listener cancelled")
                 flutterPluginBinding.applicationContext.unregisterReceiver(lockStateReceiver)
                 eventSink = null
             }

@@ -1,5 +1,11 @@
 # CHANGES
 
+## 0.1.0
+
+- solve `iOS` not working reported by kmiller issue#1
+- make initializing direct when listen to stream
+- update `Readme` with new names changes
+
 ## 0.0.6
 
 - change calls names `startDetection` it changed to `initialize`

@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - unlock_detector (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - unlock_detector (from `.symlinks/plugins/unlock_detector/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  unlock_detector:
+    :path: ".symlinks/plugins/unlock_detector/ios"
+
+SPEC CHECKSUMS:
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  unlock_detector: e997fa1993177a9d11ce595656cb39a46352d5eb
+
+PODFILE CHECKSUM: 819463e6a0290f5a72f145ba7cde16e8b6ef0796
+
+COCOAPODS: 1.15.2

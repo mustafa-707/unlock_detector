@@ -14,14 +14,14 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
         NotificationCenter.default.addObserver(
             instance,
             selector: #selector(instance.screenLocked),
-            name: UIScreen.didDisconnectNotification,
+            name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
 
         NotificationCenter.default.addObserver(
             instance,
             selector: #selector(instance.screenUnlocked),
-            name: UIScreen.didConnectNotification,
+            name: UIApplication.willEnterForegroundNotification,
             object: nil
         )
     }
