@@ -11,16 +11,32 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
         registrar.addMethodCallDelegate(instance, channel: channel)
         eventChannel.setStreamHandler(instance)
 
+        // Better lock detection - monitors data protection state
         NotificationCenter.default.addObserver(
             instance,
             selector: #selector(instance.screenLocked),
-            name: UIApplication.didEnterBackgroundNotification,
+            name: UIApplication.protectedDataWillBecomeUnavailableNotification,
             object: nil
         )
 
         NotificationCenter.default.addObserver(
             instance,
             selector: #selector(instance.screenUnlocked),
+            name: UIApplication.protectedDataDidBecomeAvailableNotification,
+            object: nil
+        )
+
+        // Also monitor app state changes
+        NotificationCenter.default.addObserver(
+            instance,
+            selector: #selector(instance.appWentBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            instance,
+            selector: #selector(instance.appWentForeground),
             name: UIApplication.willEnterForegroundNotification,
             object: nil
         )
@@ -45,10 +61,18 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
     }
 
     @objc private func screenLocked() {
-        eventSink?("LOCKED")
+        eventSink?(["event": "LOCKED", "type": "data_protection"])
     }
 
     @objc private func screenUnlocked() {
-        eventSink?("UNLOCKED")
+        eventSink?(["event": "UNLOCKED", "type": "data_protection"])
+    }
+
+    @objc private func appWentBackground() {
+        eventSink?(["event": "BACKGROUND", "type": "app_state"])
+    }
+
+    @objc private func appWentForeground() {
+        eventSink?(["event": "FOREGROUND", "type": "app_state"])
     }
 }
