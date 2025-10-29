@@ -1,5 +1,11 @@
 # CHANGES
 
+## 1.0.0
+
+- detect more state new isOnline , isOffline flags
+- upgrade versions
+- update `Readme` with new names changes
+
 ## 0.1.0
 
 - solve `iOS` not working reported by kmiller issue#1
