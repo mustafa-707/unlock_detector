@@ -118,11 +118,8 @@ class UnlockDetector {
   static UnlockDetectorStatus? _currentStatus;
 
   static Duration? _idleTimeout;
-  static Timer? _idleTimer;
-
-  /// Registrant required by the Dart-only (web / desktop) platform
-  /// declarations. No-op — presence detection there is plain Dart.
-  static void registerWith() {}
+  static Timer? _idleTimer; // mobile / web: in-app inactivity timer
+  static Timer? _idlePollTimer; // desktop: OS system-idle poll
 
   /// Whether [initialize] has been called.
   static bool get isInitialized => _isInitialized;
@@ -146,10 +143,10 @@ class UnlockDetector {
   /// Starts detection. Safe to call multiple times — initializes only once.
   ///
   /// [idleTimeout] — when set, the status becomes [UnlockDetectorStatus.idle]
-  /// after the app has been in the foreground for this long without a
-  /// [reportActivity] call. Leave `null` to disable idle detection. When using
-  /// it, feed interaction via [reportActivity] or wrap your app in
-  /// [activityDetector].
+  /// after this much inactivity. On desktop (macOS, Windows, Linux) the idle
+  /// time is read system-wide from the OS automatically. On mobile and web,
+  /// feed interaction via [reportActivity] or wrap your app in
+  /// [activityDetector]. Leave `null` to disable idle detection.
   ///
   /// Throws [UnlockDetectorException] if initialization fails.
   static Future<void> initialize({Duration? idleTimeout}) async {
@@ -190,6 +187,11 @@ class UnlockDetector {
       if (state != null) {
         _onLifecycleStateChange(state);
       }
+
+      // On desktop, idle is read system-wide from the OS.
+      if (_idleTimeout != null && _isDesktop) {
+        _startIdlePolling();
+      }
     } on PlatformException catch (e) {
       throw UnlockDetectorException('Failed to initialize: ${e.message}', e);
     } catch (e) {
@@ -206,6 +208,8 @@ class UnlockDetector {
 
     _idleTimer?.cancel();
     _idleTimer = null;
+    _idlePollTimer?.cancel();
+    _idlePollTimer = null;
     await _nativeSubscription?.cancel();
     _nativeSubscription = null;
     _lifecycleListener?.dispose();
@@ -286,6 +290,14 @@ class UnlockDetector {
       defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux;
 
+  /// Whether the app runs on a desktop OS (not web), where idle time can be
+  /// read system-wide from the operating system.
+  static bool get _isDesktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
   static void _onLifecycleStateChange(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
@@ -311,9 +323,48 @@ class UnlockDetector {
 
   static void _armIdleTimer() {
     final timeout = _idleTimeout;
-    if (timeout == null) return;
+    // Desktop uses OS-level idle polling instead of an in-app timer.
+    if (timeout == null || _isDesktop) return;
     _idleTimer?.cancel();
     _idleTimer = Timer(timeout, () => _emit(UnlockDetectorStatus.idle));
+  }
+
+  /// Starts polling the OS for system-wide idle time (desktop only).
+  static void _startIdlePolling() {
+    final timeout = _idleTimeout;
+    if (timeout == null) return;
+    _idlePollTimer?.cancel();
+    final interval = timeout < const Duration(seconds: 60)
+        ? const Duration(seconds: 5)
+        : const Duration(seconds: 20);
+    _idlePollTimer = Timer.periodic(interval, (_) => _pollSystemIdle());
+    _pollSystemIdle();
+  }
+
+  /// Compares OS idle time against [_idleTimeout] and emits `idle` /
+  /// `foreground` accordingly. Only acts while the app is in the foreground.
+  static Future<void> _pollSystemIdle() async {
+    final timeout = _idleTimeout;
+    if (timeout == null) return;
+    final idleSeconds = await _systemIdleSeconds();
+    final isIdleNow = idleSeconds >= timeout.inSeconds;
+    if (isIdleNow && _currentStatus == UnlockDetectorStatus.foreground) {
+      _emit(UnlockDetectorStatus.idle);
+    } else if (!isIdleNow && _currentStatus == UnlockDetectorStatus.idle) {
+      _emit(UnlockDetectorStatus.foreground);
+    }
+  }
+
+  /// Seconds since the last system-wide input, from the native side.
+  static Future<int> _systemIdleSeconds() async {
+    try {
+      return await _methodChannel.invokeMethod<int>(
+            'get_system_idle_seconds',
+          ) ??
+          0;
+    } catch (_) {
+      return 0;
+    }
   }
 
   static void _emit(UnlockDetectorStatus status) {

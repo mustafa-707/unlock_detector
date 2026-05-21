@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  unlock_detector
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
