@@ -4,33 +4,25 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'unlock_detector'
-  s.version          = '1.0.0'
-  s.summary          = 'Flutter plugin for detecting device lock/unlock events'
+  s.version          = '1.1.0'
+  s.summary          = 'Flutter plugin for detecting device lock/unlock and app foreground/background events.'
   s.description      = <<-DESC
-A Flutter plugin that detects device lock and unlock events on iOS and Android.
-On iOS, uses data protection notifications for lock detection (limited functionality).
-On Android, provides reliable lock/unlock detection via system broadcasts.
+A Flutter plugin that detects device lock/unlock and app foreground/background
+transitions — useful for user presence (online/offline) tracking.
                        DESC
-  s.homepage         = 'https://github.com/yourusername/unlock_detector'
+  s.homepage         = 'https://github.com/mustafa-707/unlock_detector'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Name' => 'your.email@example.com' }
+  s.author           = { 'mustafa-707' => 'https://github.com/mustafa-707' }
   s.source           = { :path => '.' }
-  s.source_files     = 'Classes/**/*'
+  s.source_files     = 'unlock_detector/Sources/unlock_detector/**/*.swift'
+  s.resource_bundles = { 'unlock_detector_privacy' => ['unlock_detector/Sources/unlock_detector/PrivacyInfo.xcprivacy'] }
   s.dependency 'Flutter'
-  
-  # Updated to iOS 12.0+ (covers all modern devices)
-  s.platform = :ios, '12.0'
+  s.platform = :ios, '13.0'
+  s.swift_version = '5.9'
 
-  # Swift version
-  s.swift_version = '5.9'  # Updated to latest stable Swift
-
-  # Modern Xcode configuration
-  s.pod_target_xcconfig = { 
+  s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',  # Exclude 32-bit simulator
-    'SWIFT_VERSION' => '5.9'
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
   }
-  
-  # iOS deployment target
-  s.ios.deployment_target = '12.0'
+  s.ios.deployment_target = '13.0'
 end

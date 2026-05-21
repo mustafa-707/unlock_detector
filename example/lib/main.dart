@@ -129,8 +129,9 @@ class _HomePageState extends State<HomePage> {
             color: _isOnline ? Colors.green : Colors.grey.shade400,
             boxShadow: [
               BoxShadow(
-                color: (_isOnline ? Colors.green : Colors.grey)
-                    .withValues(alpha: .3),
+                color: (_isOnline ? Colors.green : Colors.grey).withValues(
+                  alpha: .3,
+                ),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -153,9 +154,9 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 8),
         Text(
           _getStatusMessage(),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
       ],
@@ -168,7 +169,8 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         children: [
           Expanded(
-              child: _buildInfoCard('Current', _status.name.toUpperCase())),
+            child: _buildInfoCard('Current', _status.name.toUpperCase()),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: _buildInfoCard(
@@ -188,26 +190,23 @@ class _HomePageState extends State<HomePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .05),
-            blurRadius: 10,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 10),
         ],
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -302,10 +301,7 @@ class _HomePageState extends State<HomePage> {
           ),
           Text(
             timeStr,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
         ],
       ),

@@ -1,0 +1,10 @@
+# This file configures the analyzer, which statically analyzes Dart code to
+# check for errors, warnings, and lints.
+#
+# The lint set provided by `flutter_lints` encourages good coding practices for
+# Flutter packages and plugins. See https://dart.dev/lints for the full list.
+
+include: package:flutter_lints/flutter.yaml
+
+# Additional information about this file can be found at
+# https://dart.dev/guides/language/analysis-options

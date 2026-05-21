@@ -1,265 +1,91 @@
-# Unlock Detector Plugin for Flutter
+# unlock_detector
 
 [![StandWithPalestine](https://raw.githubusercontent.com/TheBSD/StandWithPalestine/main/badges/StandWithPalestine.svg)](https://github.com/TheBSD/StandWithPalestine/blob/main/docs/README.md) [![Pub Package](https://img.shields.io/pub/v/unlock_detector.svg)](https://pub.dev/packages/unlock_detector)
 
-A Flutter plugin to detect user online/offline status by monitoring device lock state and app lifecycle events. Perfect for chat apps, user presence systems, and any application needing accurate user activity tracking.
+A Flutter plugin that detects **foreground/background**, **idle**, and device
+**lock/unlock** — ideal for user online/offline presence in chat apps and
+activity tracking.
 
-## Key Features
+## Status types
 
-- � Track when users are actively using your app (online)
-- � Detect when users go offline (background/locked)
-- � Monitor device lock/unlock events
-- � Track app foreground/background transitions
-- ✨ Simple stream-based API
-- 💪 Type-safe enum status values
-- 🎯 Platform-specific optimizations
+| Status | Meaning | User |
+| ------ | ------- | ---- |
+| `foreground` | App is active and visible | **online** |
+| `idle` | App open but user inactive | *away* |
+| `background` | User switched away | **offline** |
+| `locked` | Device screen locked | **offline** |
+| `unlocked` | Device just unlocked | *transitional* |
+| `screenOn` | Screen turned on (Android) | *transitional* |
 
-## Status Types
+Helpers on each status: `isOnline`, `isOffline`, `isIdle`, `isLocked`,
+`isUnlocked`, `isForeground`, `isBackground`, `isScreenOn`.
 
-The plugin tracks four essential states:
+## Platform support
 
-| Status | Description | User State |
-|--------|-------------|------------|
-| `FOREGROUND` | App is active and visible | **ONLINE** |
-| `BACKGROUND` | User switched to another app | **OFFLINE** |
-| `LOCKED` | Device screen is locked | **OFFLINE** |
-| `UNLOCKED` | Device was just unlocked | *Transitional* |
+| Platform | foreground / background / idle | lock / unlock |
+| -------- | :---: | :---: |
+| Android | ✅ | ✅ + `screenOn` |
+| iOS | ✅ | ✅ (data-protection APIs) |
+| Web · macOS · Windows · Linux | ✅ | — |
 
-## Platform Support
-
-| Android | iOS |
-|---------|-----|
-| ✅ Reliable detection of lock, unlock, and screen-on events | ✅ Limited detection using data protection APIs |
-| ✅ Works in background while app is alive | ⚠️ Only works when app is active or recently backgrounded |
-
-## Installation
-
-Add this to your package's `pubspec.yaml` file:
+## Install
 
 ```yaml
 dependencies:
-  unlock_detector: ^latest_version
+  unlock_detector: ^1.1.0
 ```
+
+iOS works with both CocoaPods and Swift Package Manager — no setup needed.
 
 ## Usage
 
-### 1. Initialize the Detector
-
-Before using the detector, initialize it:
-
 ```dart
-await UnlockDetector.initialize();
-```
+import 'package:unlock_detector/unlock_detector.dart';
 
-### 2. Listen for Status Changes
+// Initialize once. Pass idleTimeout to enable idle detection.
+await UnlockDetector.initialize(idleTimeout: const Duration(minutes: 5));
 
-```dart
-UnlockDetector.stream.listen((status) {
+// Listen to status changes.
+final sub = UnlockDetector.stream.listen((status) {
   if (status.isOnline) {
-    print('User is actively using the app');
-    // Update user's online status in your backend
-    api.updateUserStatus(userId, online: true);
+    // user is actively using the app
+  } else if (status.isIdle) {
+    // app open, user inactive
   } else if (status.isOffline) {
-    print('User is not using the app');
-    // Mark user as offline in your backend
-    api.updateUserStatus(userId, online: false);
+    // user left the app or locked the device
   }
 });
-```
 
-### 3. Use Convenience Getters
+// Read the latest status synchronously (null before the first event).
+final now = UnlockDetector.currentStatus;
 
-```dart
-void handleStatus(UnlockDetectorStatus status) {
-  // High-level online/offline checks
-  if (status.isOnline) {
-    // User is actively using the app
-  }
-  if (status.isOffline) {
-    // User is either in background or device is locked
-  }
+// One-shot lock check (Android reliable, iOS best-effort).
+final locked = await UnlockDetector.isDeviceLocked();
 
-  // Specific state checks
-  if (status.isForeground) {
-    // App is visible and active
-  }
-  if (status.isBackground) {
-    // App is in background
-  }
-  if (status.isLocked) {
-    // Device is locked
-  }
-  if (status.isUnlocked) {
-    // Device was just unlocked
-  }
-}
-```
-
-### 4. Clean Up
-
-When you're done with detection, dispose of resources:
-
-```dart
+// Clean up when done.
+await sub.cancel();
 await UnlockDetector.dispose();
 ```
 
-## Complete Example
+### Idle detection
 
-Here's a full example showing common usage patterns:
-
-```dart
-import 'package:flutter/material.dart';
-import 'package:unlock_detector/unlock_detector.dart';
-
-class UserPresenceWidget extends StatefulWidget {
-  @override
-  State<UserPresenceWidget> createState() => _UserPresenceWidgetState();
-}
-
-class _UserPresenceWidgetState extends State<UserPresenceWidget> {
-  StreamSubscription? _subscription;
-  String _status = 'Unknown';
-  bool _isOnline = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _setupDetector();
-  }
-
-  Future<void> _setupDetector() async {
-    try {
-      // Initialize the detector
-      await UnlockDetector.initialize();
-
-      // Start listening to status changes
-      _subscription = UnlockDetector.stream.listen(
-        (status) {
-          setState(() {
-            _status = status.toString();
-            _isOnline = status.isOnline;
-          });
-
-          // Update backend about user's status
-          if (status.isOnline) {
-            print('Updating backend: User is online');
-          } else if (status.isOffline) {
-            print('Updating backend: User is offline');
-          }
-        },
-        onError: (error) {
-          if (error is UnlockDetectorException) {
-            print('Detector error: ${error.message}');
-          }
-        },
-      );
-    } on UnlockDetectorException catch (e) {
-      print('Failed to initialize: ${e.message}');
-    }
-  }
-
-  @override
-  void dispose() {
-    // Clean up
-    _subscription?.cancel();
-    UnlockDetector.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _isOnline ? Icons.circle : Icons.circle_outlined,
-              color: _isOnline ? Colors.green : Colors.red,
-            ),
-            Text('Status: $_status'),
-            Text('User is ${_isOnline ? 'Online' : 'Offline'}'),
-          ],
-        ),
-      ),
-    );
-  }
-}## Platform-Specific Notes
-
-### Android
-
-- Reliable detection of lock, unlock, and screen-on events
-- Works in background while the app process is alive
-- Uses system broadcasts for detection
-
-### iOS
-
-- Limited detection using data protection APIs
-- Only works when app is active or recently backgrounded
-- Returns background/foreground transitions
-- Detection may be unreliable in some scenarios
-
-To check platform-specific behavior at runtime:
+When you pass `idleTimeout`, feed user interaction so the timer can reset —
+either call `UnlockDetector.reportActivity()` from your input handling, or wrap
+your app:
 
 ```dart
-print(UnlockDetector.getPlatformInfo());
+runApp(UnlockDetector.activityDetector(child: const MyApp()));
 ```
 
-## Error Handling
-
-The plugin provides the `UnlockDetectorException` class for error cases:
-
-```dart
-try {
-  await UnlockDetector.initialize();
-} on UnlockDetectorException catch (e) {
-  print('Failed to initialize: ${e.message}');
-  if (e.originalError != null) {
-    print('Original error: ${e.originalError}');
-  }
-}
-```
-
-## Platform-Specific Notes
-
-### Android
-
-- Full support for all status types
-- Reliable background operation
-- Accurate lock/unlock detection using system broadcasts
-- Works consistently while app process is alive
-
-### iOS
-
-- Full support for foreground/background detection
-- Limited lock/unlock detection (works when app is active)
-- Background detection may be limited by iOS
-- Uses data protection APIs for lock state
-
-Check platform behavior at runtime:
-
-```dart
-print(UnlockDetector.getPlatformInfo());
-```
-
-## Exception Handling
-
-The plugin provides `UnlockDetectorException` for error cases:
-
-```dart
-try {
-  await UnlockDetector.initialize();
-} on UnlockDetectorException catch (e) {
-  print('Detector error: ${e.message}');
-  if (e.originalError != null) {
-    print('Original error: ${e.originalError}');
-  }
-}
-```
+Initialization failures throw `UnlockDetectorException`. Call
+`UnlockDetector.getPlatformInfo()` for a description of platform behavior.
 
 ## Support
 
-If you find this plugin helpful, consider supporting the development:
+If this plugin helps you, consider supporting development:
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-1.svg)](https://buymeacoffee.com/is10vmust)
+
+## License
+
+MIT — see [LICENSE](LICENSE).

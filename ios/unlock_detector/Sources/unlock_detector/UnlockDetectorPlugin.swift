@@ -1,6 +1,10 @@
 import Flutter
 import UIKit
 
+/// UnlockDetectorPlugin — detects device lock/unlock on iOS.
+///
+/// App foreground/background detection is handled in Dart via the Flutter app
+/// lifecycle, so this plugin covers only the device-level signals.
 public class UnlockDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
 
@@ -11,41 +15,31 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
         registrar.addMethodCallDelegate(instance, channel: channel)
         eventChannel.setStreamHandler(instance)
 
-        // Better lock detection - monitors data protection state
+        // Lock detection via data-protection availability.
         NotificationCenter.default.addObserver(
             instance,
             selector: #selector(instance.screenLocked),
             name: UIApplication.protectedDataWillBecomeUnavailableNotification,
             object: nil
         )
-
         NotificationCenter.default.addObserver(
             instance,
             selector: #selector(instance.screenUnlocked),
             name: UIApplication.protectedDataDidBecomeAvailableNotification,
             object: nil
         )
-
-        // Also monitor app state changes
-        NotificationCenter.default.addObserver(
-            instance,
-            selector: #selector(instance.appWentBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-
-        NotificationCenter.default.addObserver(
-            instance,
-            selector: #selector(instance.appWentForeground),
-            name: UIApplication.willEnterForegroundNotification,
-            object: nil
-        )
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        if call.method == "detect_on" {
+        switch call.method {
+        case "detect_on":
             result("Detection started")
-        } else {
+        case "detect_off":
+            result("Detection stopped")
+        case "is_device_locked":
+            // Best-effort: data protection is unavailable while the device is locked.
+            result(!UIApplication.shared.isProtectedDataAvailable)
+        default:
             result(FlutterMethodNotImplemented)
         }
     }
@@ -68,11 +62,7 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler
         eventSink?(["event": "UNLOCKED", "type": "data_protection"])
     }
 
-    @objc private func appWentBackground() {
-        eventSink?(["event": "BACKGROUND", "type": "app_state"])
-    }
-
-    @objc private func appWentForeground() {
-        eventSink?(["event": "FOREGROUND", "type": "app_state"])
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
