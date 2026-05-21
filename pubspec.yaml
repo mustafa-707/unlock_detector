@@ -1,8 +1,15 @@
 name: unlock_detector
-description: "A Flutter Package to detect if app running while phone is locked or not."
-version: 1.0.0
+description: "A Flutter plugin to detect device lock/unlock and app foreground/background events for user online/offline presence."
+version: 1.1.0
 repository: https://github.com/mustafa-707/unlock_detector
 issue_tracker: https://github.com/mustafa-707/unlock_detector/issues
+
+topics:
+  - lock
+  - unlock
+  - lifecycle
+  - presence
+  - foreground
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -11,7 +18,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
 
+dev_dependencies:
+  flutter_lints: ^6.0.0
 
 flutter:
   plugin:
@@ -21,3 +32,12 @@ flutter:
         pluginClass: UnlockDetectorPlugin
       ios:
         pluginClass: UnlockDetectorPlugin
+      web:
+        pluginClass: UnlockDetectorWeb
+        fileName: unlock_detector_web.dart
+      macos:
+        dartPluginClass: UnlockDetector
+      windows:
+        dartPluginClass: UnlockDetector
+      linux:
+        dartPluginClass: UnlockDetector

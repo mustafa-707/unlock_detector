@@ -1,85 +1,71 @@
-/// A simple utility to detect if the user is actively using the app (online/offline).
+/// Detects device lock/unlock, app foreground/background, idle and screen
+/// state — for user online/offline presence.
 ///
-/// This package tracks 4 essential statuses:
-/// - **FOREGROUND**: User is actively using the app (ONLINE)
-/// - **BACKGROUND**: User switched away from the app (OFFLINE)
-/// - **LOCKED**: Device is locked, user definitely not using app (OFFLINE)
-/// - **UNLOCKED**: Device unlocked, user may return to app
-///
-/// **Platform Support:**
-/// - **Android**: Full support for all statuses
-/// - **iOS**: Limited - detects BACKGROUND/FOREGROUND and LOCKED/UNLOCKED when app is active
-///
-/// **Usage Example:**
-/// ```dart
-/// await UnlockDetector.initialize();
-///
-/// UnlockDetector.stream.listen((status) {
-///   if (status.isOnline) {
-///     print('User is actively using the app');
-///     // Update user's online status in your backend
-///     api.updateUserStatus(userId, online: true);
-///   } else if (status.isOffline) {
-///     print('User is not using the app');
-///     // Mark user as offline in your backend
-///     api.updateUserStatus(userId, online: false);
-///   }
-/// });
-///
-/// // Clean up when done
-/// await UnlockDetector.dispose();
-/// ```
-library unlock_detector;
+/// Platform coverage:
+/// - **foreground / background / idle** — all platforms (Android, iOS, web,
+///   macOS, Windows, Linux), driven by the Flutter app lifecycle.
+/// - **locked / unlocked / screenOn** — Android and iOS only.
+library;
 
 import 'dart:async';
 import 'dart:developer';
-import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
-/// Essential statuses for determining if user is online/offline.
+/// Presence and device statuses emitted by [UnlockDetector].
 enum UnlockDetectorStatus {
-  /// Device is locked - user is definitely OFFLINE.
-  locked("LOCKED"),
+  /// Device screen was locked — user is OFFLINE.
+  locked('LOCKED'),
 
-  /// Device was unlocked - user authenticated.
-  unlocked("UNLOCKED"),
+  /// Device was unlocked — user authenticated.
+  unlocked('UNLOCKED'),
 
-  /// App went to background - user is OFFLINE.
-  background("BACKGROUND"),
+  /// App moved to the background — user is OFFLINE.
+  background('BACKGROUND'),
 
-  /// App came to foreground - user is ONLINE.
-  foreground("FOREGROUND"),
+  /// App is in the foreground — user is ONLINE.
+  foreground('FOREGROUND'),
+
+  /// App is in the foreground but the user has been inactive
+  /// (see `idleTimeout` in [UnlockDetector.initialize]).
+  idle('IDLE'),
+
+  /// Device screen turned on (it may still be locked). Android only.
+  screenOn('SCREEN_ON'),
 
   /// Unknown or unrecognized status.
-  unknown("UNKNOWN");
+  unknown('UNKNOWN');
 
   final String value;
   const UnlockDetectorStatus(this.value);
 
-  /// True when user is actively using the app (online).
-  ///
-  /// Returns true only when status is [foreground].
+  /// User is actively using the app.
   bool get isOnline => this == foreground;
 
-  /// True when user is not using the app (offline).
-  ///
-  /// Returns true when status is [background] or [locked].
+  /// User is not using the app (background or device locked).
   bool get isOffline => this == background || this == locked;
 
-  /// True when the device is locked.
+  /// App is open but the user has been inactive.
+  bool get isIdle => this == idle;
+
+  /// Device is locked.
   bool get isLocked => this == locked;
 
-  /// True when the device was unlocked.
+  /// Device was just unlocked.
   bool get isUnlocked => this == unlocked;
 
-  /// True when app is in background.
+  /// App is in the background.
   bool get isBackground => this == background;
 
-  /// True when app is in foreground.
+  /// App is in the foreground.
   bool get isForeground => this == foreground;
 
-  /// Converts a string value to the corresponding enum value.
+  /// Device screen is on.
+  bool get isScreenOn => this == screenOn;
+
+  /// Converts a platform string to the matching enum value.
   static UnlockDetectorStatus fromString(String value) {
     return UnlockDetectorStatus.values.firstWhere(
       (status) => status.value == value,
@@ -88,7 +74,7 @@ enum UnlockDetectorStatus {
   }
 }
 
-/// Exception thrown when unlock detector operations fail.
+/// Thrown when an [UnlockDetector] operation fails.
 class UnlockDetectorException implements Exception {
   final String message;
   final dynamic originalError;
@@ -96,112 +82,90 @@ class UnlockDetectorException implements Exception {
   const UnlockDetectorException(this.message, [this.originalError]);
 
   @override
-  String toString() =>
-      'UnlockDetectorException: $message${originalError != null ? ' ($originalError)' : ''}';
+  String toString() => 'UnlockDetectorException: $message'
+      '${originalError != null ? ' ($originalError)' : ''}';
 }
 
-/// Simple detector for tracking if user is actively using the app.
+/// Detects device and app presence state.
 ///
-/// This class provides a static API to monitor app and device state changes.
-/// It emits 4 essential statuses:
-/// - [UnlockDetectorStatus.foreground]: User is actively using the app
-/// - [UnlockDetectorStatus.background]: User switched to another app
-/// - [UnlockDetectorStatus.locked]: Device screen was locked
-/// - [UnlockDetectorStatus.unlocked]: Device screen was unlocked
+/// Static API — call [initialize] once, listen to [stream], call [dispose]
+/// when finished:
 ///
-/// **Important Notes:**
-/// - You must call [initialize] before listening to [stream]
-/// - Always call [dispose] when you're done to clean up resources
-/// - Use [isOnline] and [isOffline] getters on statuses for simple checks
-///
-/// **Example:**
 /// ```dart
-/// // Initialize once at app startup
 /// await UnlockDetector.initialize();
-///
-/// // Listen to status changes
-/// final subscription = UnlockDetector.stream.listen((status) {
-///   if (status.isOnline) {
-///     // User is actively using your app
-///     myBackendService.setUserOnline();
-///   } else if (status.isOffline) {
-///     // User left the app or locked their device
-///     myBackendService.setUserOffline();
-///   }
+/// final sub = UnlockDetector.stream.listen((status) {
+///   if (status.isOnline) { /* user active */ }
 /// });
-///
-/// // Later, clean up
-/// await subscription.cancel();
+/// // ...
+/// await sub.cancel();
 /// await UnlockDetector.dispose();
 /// ```
 class UnlockDetector {
+  /// Const constructor — this class only exposes static members.
+  const UnlockDetector();
+
   static const MethodChannel _methodChannel = MethodChannel('unlock_detector');
-  static const EventChannel _eventChannel =
-      EventChannel('unlock_detector_stream');
+  static const EventChannel _eventChannel = EventChannel(
+    'unlock_detector_stream',
+  );
 
   static bool _isInitialized = false;
-  static StreamSubscription? _internalSubscription;
+  static StreamSubscription? _nativeSubscription;
+  static AppLifecycleListener? _lifecycleListener;
   static final _controller = StreamController<UnlockDetectorStatus>.broadcast();
+  static UnlockDetectorStatus? _currentStatus;
 
-  /// Whether the detector has been initialized.
+  static Duration? _idleTimeout;
+  static Timer? _idleTimer;
+
+  /// Registrant required by the Dart-only (web / desktop) platform
+  /// declarations. No-op — presence detection there is plain Dart.
+  static void registerWith() {}
+
+  /// Whether [initialize] has been called.
   static bool get isInitialized => _isInitialized;
 
+  /// The most recently observed status, or `null` before the first event
+  /// (or after [dispose]).
+  ///
+  /// [stream] is a broadcast stream that only emits on change — read this to
+  /// obtain the current state synchronously.
+  static UnlockDetectorStatus? get currentStatus => _currentStatus;
+
   /// Whether the current platform is Android.
-  static bool get isAndroid => Platform.isAndroid;
+  static bool get isAndroid => defaultTargetPlatform == TargetPlatform.android;
 
   /// Whether the current platform is iOS.
-  static bool get isIOS => Platform.isIOS;
+  static bool get isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
-  /// Stream of online/offline status changes.
-  ///
-  /// Listen to this stream to know when the user is actively using the app
-  /// (FOREGROUND) or not (BACKGROUND/LOCKED).
-  ///
-  /// **You must call [initialize] before listening to this stream.**
-  ///
-  /// Example:
-  /// ```dart
-  /// UnlockDetector.stream.listen((status) {
-  ///   print('Status changed: ${status.name}');
-  ///   if (status.isOnline) {
-  ///     print('User is using the app');
-  ///   }
-  /// });
-  /// ```
+  /// Broadcast stream of presence changes. Call [initialize] before listening.
   static Stream<UnlockDetectorStatus> get stream => _controller.stream;
 
-  /// Initialize the detector.
+  /// Starts detection. Safe to call multiple times — initializes only once.
   ///
-  /// This method sets up the platform channels and starts listening for
-  /// lock/unlock and app lifecycle events from the native side.
-  ///
-  /// It is safe to call this multiple times - it will only initialize once.
+  /// [idleTimeout] — when set, the status becomes [UnlockDetectorStatus.idle]
+  /// after the app has been in the foreground for this long without a
+  /// [reportActivity] call. Leave `null` to disable idle detection. When using
+  /// it, feed interaction via [reportActivity] or wrap your app in
+  /// [activityDetector].
   ///
   /// Throws [UnlockDetectorException] if initialization fails.
-  ///
-  /// Example:
-  /// ```dart
-  /// try {
-  ///   await UnlockDetector.initialize();
-  ///   print('Detector initialized successfully');
-  /// } catch (e) {
-  ///   print('Failed to initialize: $e');
-  /// }
-  /// ```
-  static Future<void> initialize() async {
+  static Future<void> initialize({Duration? idleTimeout}) async {
     if (_isInitialized) {
       log('[unlock_detector] Already initialized');
       return;
     }
+    _idleTimeout = idleTimeout;
 
     try {
-      // Start listening to the platform event stream
-      _internalSubscription = _eventChannel.receiveBroadcastStream().listen(
-        (event) {
-          final status = _parseStatus(event);
-          log('[unlock_detector] Status changed: ${status.name}');
-          _controller.add(status);
-        },
+      // Foreground / background — plain Dart, works on every platform.
+      _lifecycleListener = AppLifecycleListener(
+        onStateChange: _onLifecycleStateChange,
+      );
+
+      // Native lock / unlock / screen events — Android and iOS only.
+      _nativeSubscription = _eventChannel.receiveBroadcastStream().listen(
+        (event) => _emit(_parseStatus(event)),
         onError: (error) {
           log('[unlock_detector] Stream error: $error');
           _controller.addError(
@@ -210,101 +174,146 @@ class UnlockDetector {
         },
       );
 
-      // Notify platform to start detection
-      final result = await _methodChannel.invokeMethod('detect_on');
-      log('[unlock_detector] $result');
+      // Handshake with the native side (absent on web / desktop).
+      try {
+        await _methodChannel.invokeMethod('detect_on');
+      } on MissingPluginException {
+        // No native implementation here — lifecycle + idle still work.
+      }
 
       _isInitialized = true;
+
+      // Emit the current lifecycle state immediately.
+      final state = WidgetsBinding.instance.lifecycleState;
+      if (state != null) {
+        _onLifecycleStateChange(state);
+      }
     } on PlatformException catch (e) {
-      log('[unlock_detector] Platform exception: ${e.message}');
       throw UnlockDetectorException('Failed to initialize: ${e.message}', e);
     } catch (e) {
-      log('[unlock_detector] Unexpected error: $e');
       throw UnlockDetectorException('Failed to initialize', e);
     }
   }
 
-  /// Stop detection and clean up resources.
-  ///
-  /// This cancels all subscriptions and notifies the platform to stop
-  /// detecting events. Call this when you no longer need lock/unlock detection,
-  /// typically when disposing your app or when you're done monitoring status.
-  ///
-  /// It is safe to call this multiple times - it will only dispose once.
-  ///
-  /// Example:
-  /// ```dart
-  /// await UnlockDetector.dispose();
-  /// print('Detector disposed');
-  /// ```
+  /// Stops detection and releases resources. Safe to call multiple times.
   static Future<void> dispose() async {
     if (!_isInitialized) {
       log('[unlock_detector] Already disposed or never initialized');
       return;
     }
 
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    await _nativeSubscription?.cancel();
+    _nativeSubscription = null;
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
+    _currentStatus = null;
+    _isInitialized = false;
+
     try {
-      // Cancel the internal subscription
-      await _internalSubscription?.cancel();
-      _internalSubscription = null;
-
-      // Notify platform to stop detection (Android only)
-      if (isAndroid) {
-        try {
-          await _methodChannel.invokeMethod('detect_off');
-          log('[unlock_detector] Platform detection stopped');
-        } catch (e) {
-          log('[unlock_detector] Failed to call detect_off: $e');
-        }
-      }
-
-      _isInitialized = false;
-      log('[unlock_detector] Disposed successfully');
+      await _methodChannel.invokeMethod('detect_off');
+    } on MissingPluginException {
+      // No native implementation here.
     } catch (e) {
-      log('[unlock_detector] Error during disposal: $e');
+      log('[unlock_detector] Failed to call detect_off: $e');
     }
+    log('[unlock_detector] Disposed');
   }
 
-  /// Parse the event from the platform into a [UnlockDetectorStatus].
+  /// Reports user interaction, resetting the idle timer.
   ///
-  /// Handles both iOS (Map format) and Android (String format) responses.
-  static UnlockDetectorStatus _parseStatus(dynamic event) {
-    if (event is Map) {
-      // iOS structured response: {event: "LOCKED", type: "data_protection"}
-      final eventValue = event['event']?.toString() ?? '';
-      return UnlockDetectorStatus.fromString(eventValue);
-    } else if (event is String) {
-      // Android simple string response: "LOCKED", "UNLOCKED", etc.
-      return UnlockDetectorStatus.fromString(event);
-    } else {
-      log('[unlock_detector] Unknown event format: $event (${event.runtimeType})');
-      return UnlockDetectorStatus.unknown;
+  /// Only relevant when [initialize] was given an `idleTimeout`. Call it from
+  /// your input handling, or use [activityDetector] to wire it automatically.
+  static void reportActivity() {
+    if (_idleTimeout == null) return;
+    if (_currentStatus == UnlockDetectorStatus.idle) {
+      _emit(UnlockDetectorStatus.foreground);
     }
+    _armIdleTimer();
   }
 
-  /// Get information about platform-specific behavior.
+  /// Wraps [child] so any pointer interaction calls [reportActivity].
   ///
-  /// Returns a human-readable string explaining how the detector works
-  /// on the current platform.
-  ///
-  /// Example:
+  /// Place it above your app content when using idle detection:
   /// ```dart
-  /// print(UnlockDetector.getPlatformInfo());
-  /// // Android: Tracks FOREGROUND/BACKGROUND (app state) and LOCKED/UNLOCKED (device state)
+  /// UnlockDetector.activityDetector(child: const MyApp());
   /// ```
+  static Widget activityDetector({required Widget child}) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => reportActivity(),
+      onPointerSignal: (_) => reportActivity(),
+      child: child,
+    );
+  }
+
+  /// Whether the device is currently locked.
+  ///
+  /// Android: reliable via `KeyguardManager`. iOS: best-effort (data
+  /// protection). Web and desktop: always `false`.
+  static Future<bool> isDeviceLocked() async {
+    try {
+      return await _methodChannel.invokeMethod<bool>('is_device_locked') ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// A human-readable description of detection behavior on this platform.
   static String getPlatformInfo() {
     if (isAndroid) {
-      return 'Android: Tracks FOREGROUND/BACKGROUND (app state) and LOCKED/UNLOCKED (device state)';
+      return 'Android: foreground/background, idle, and lock/unlock/screen-on '
+          'detection.';
     } else if (isIOS) {
-      return 'iOS: Limited detection - BACKGROUND/FOREGROUND always work, LOCKED/UNLOCKED work when app is active';
-    } else {
-      return 'Platform not supported';
+      return 'iOS: foreground/background and idle detection; lock/unlock via '
+          'data-protection APIs (works while the app is active).';
+    }
+    return 'Web / desktop: foreground/background and idle detection.';
+  }
+
+  // --- internals ---
+
+  static void _onLifecycleStateChange(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _emit(UnlockDetectorStatus.foreground);
+        _armIdleTimer();
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _idleTimer?.cancel();
+        _emit(UnlockDetectorStatus.background);
+      case AppLifecycleState.inactive:
+        break; // transitional — ignore
     }
   }
 
-  /// Creates a new [UnlockDetector] instance.
-  ///
-  /// This class only exposes static members and does not require creating an
-  /// instance. The constructor exists primarily for documentation purposes.
-  const UnlockDetector();
+  static void _armIdleTimer() {
+    final timeout = _idleTimeout;
+    if (timeout == null) return;
+    _idleTimer?.cancel();
+    _idleTimer = Timer(timeout, () => _emit(UnlockDetectorStatus.idle));
+  }
+
+  static void _emit(UnlockDetectorStatus status) {
+    if (status == UnlockDetectorStatus.unknown || status == _currentStatus) {
+      return;
+    }
+    _currentStatus = status;
+    log('[unlock_detector] Status changed: ${status.name}');
+    _controller.add(status);
+  }
+
+  /// Parses a native event (iOS map or Android string) into a status.
+  static UnlockDetectorStatus _parseStatus(dynamic event) {
+    if (event is Map) {
+      return UnlockDetectorStatus.fromString(event['event']?.toString() ?? '');
+    } else if (event is String) {
+      return UnlockDetectorStatus.fromString(event);
+    }
+    log('[unlock_detector] Unknown event format: $event');
+    return UnlockDetectorStatus.unknown;
+  }
 }

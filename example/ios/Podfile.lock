@@ -1,6 +1,6 @@
 PODS:
   - Flutter (1.0.0)
-  - unlock_detector (1.0.0):
+  - unlock_detector (1.1.0):
     - Flutter
 
 DEPENDENCIES:
@@ -15,7 +15,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  unlock_detector: 798909436b39c914038aeaf776b4c07fd94ed1bc
+  unlock_detector: 8ceb09008d1fb916cdeba493593f9b9802b60626
 
 PODFILE CHECKSUM: 4f1c12611da7338d21589c0b2ecd6bd20b109694
 
