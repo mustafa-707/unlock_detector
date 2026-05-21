@@ -28,6 +28,10 @@ Helpers on each status: `isOnline`, `isOffline`, `isIdle`, `isLocked`,
 | iOS | ✅ | ✅ (data-protection APIs) |
 | Web · macOS · Windows · Linux | ✅ | — |
 
+On web and desktop, `foreground`/`background` reflect window **focus/blur**
+(a focused window is online, a blurred or minimized one is offline) — there is
+no device-lock concept there.
+
 ## Install
 
 ```yaml

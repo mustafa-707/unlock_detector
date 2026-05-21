@@ -1,5 +1,11 @@
 # CHANGES
 
+## 1.1.1
+
+- Web & desktop: window **blur** (lost focus) is now reported as `background`
+  and window **focus** as `foreground` — previously a blurred-but-visible
+  window was missed. Mobile behavior is unchanged.
+
 ## 1.1.0
 
 - **Web & desktop support** — foreground/background and idle now work on web,

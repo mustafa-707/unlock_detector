@@ -2,8 +2,10 @@
 /// state — for user online/offline presence.
 ///
 /// Platform coverage:
-/// - **foreground / background / idle** — all platforms (Android, iOS, web,
-///   macOS, Windows, Linux), driven by the Flutter app lifecycle.
+/// - **foreground / background / idle** — all platforms. On Android and iOS
+///   this tracks the app lifecycle; on web and desktop it tracks window
+///   focus/blur (a focused window is `foreground`, a blurred or minimized
+///   one is `background`).
 /// - **locked / unlocked / screenOn** — Android and iOS only.
 library;
 
@@ -270,23 +272,40 @@ class UnlockDetector {
       return 'iOS: foreground/background and idle detection; lock/unlock via '
           'data-protection APIs (works while the app is active).';
     }
-    return 'Web / desktop: foreground/background and idle detection.';
+    return 'Web / desktop: window focus/blur (foreground/background) and idle '
+        'detection.';
   }
 
   // --- internals ---
 
+  /// Whether the app runs on web or a desktop OS, where presence is a matter
+  /// of window focus rather than device lock.
+  static bool get _isDesktopOrWeb =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux;
+
   static void _onLifecycleStateChange(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        // Window focused / app in the foreground.
         _emit(UnlockDetectorStatus.foreground);
         _armIdleTimer();
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
+        // App hidden / window minimized.
         _idleTimer?.cancel();
         _emit(UnlockDetectorStatus.background);
       case AppLifecycleState.inactive:
-        break; // transitional — ignore
+        // On web and desktop, 'inactive' means the window lost focus — treat
+        // it as background. On mobile it is only a brief transition (incoming
+        // call, app switcher, control center), so it is ignored there.
+        if (_isDesktopOrWeb) {
+          _idleTimer?.cancel();
+          _emit(UnlockDetectorStatus.background);
+        }
     }
   }
 
