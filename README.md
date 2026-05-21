@@ -22,15 +22,17 @@ Helpers on each status: `isOnline`, `isOffline`, `isIdle`, `isLocked`,
 
 ## Platform support
 
-| Platform | foreground / background / idle | lock / unlock |
-| -------- | :---: | :---: |
-| Android | ✅ | ✅ + `screenOn` |
-| iOS | ✅ | ✅ (data-protection APIs) |
-| Web · macOS · Windows · Linux | ✅ | — |
+| Platform | foreground / background | idle | lock / unlock |
+| -------- | :---: | :---: | :---: |
+| Android | ✅ | ✅ in-app | ✅ + `screenOn` |
+| iOS | ✅ | ✅ in-app | ✅ (data-protection APIs) |
+| macOS · Windows · Linux | ✅ window focus | ✅ OS system-wide | — |
+| Web | ✅ window focus | ✅ in-app | — |
 
 On web and desktop, `foreground`/`background` reflect window **focus/blur**
-(a focused window is online, a blurred or minimized one is offline) — there is
-no device-lock concept there.
+(a focused window is online, blurred or minimized is offline) — there is no
+device-lock concept there. On desktop, `idle` follows the **OS system-wide**
+idle time; on mobile and web it follows in-app interaction (see below).
 
 ## Install
 
@@ -73,13 +75,16 @@ await UnlockDetector.dispose();
 
 ### Idle detection
 
-When you pass `idleTimeout`, feed user interaction so the timer can reset —
-either call `UnlockDetector.reportActivity()` from your input handling, or wrap
-your app:
+Pass `idleTimeout` to `initialize()` to get the `idle` status.
 
-```dart
-runApp(UnlockDetector.activityDetector(child: const MyApp()));
-```
+- **Desktop (macOS/Windows/Linux):** automatic — idle follows the OS
+  system-wide idle time (any keyboard/mouse input). Nothing else to do.
+- **Mobile & web:** feed in-app interaction so the timer can reset — call
+  `UnlockDetector.reportActivity()` from your input handling, or wrap your app:
+
+  ```dart
+  runApp(UnlockDetector.activityDetector(child: const MyApp()));
+  ```
 
 Initialization failures throw `UnlockDetectorException`. Call
 `UnlockDetector.getPlatformInfo()` for a description of platform behavior.

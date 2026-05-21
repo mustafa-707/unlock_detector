@@ -27,3 +27,8 @@ migrate_working_dir/
 **/doc/api/
 .dart_tool/
 build/
+
+# AI tooling
+.claude/
+.claude-flow/
+.mcp.json

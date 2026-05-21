@@ -1,15 +1,21 @@
 PODS:
   - FlutterMacOS (1.0.0)
+  - unlock_detector (1.2.0):
+    - FlutterMacOS
 
 DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - unlock_detector (from `Flutter/ephemeral/.symlinks/plugins/unlock_detector/macos`)
 
 EXTERNAL SOURCES:
   FlutterMacOS:
     :path: Flutter/ephemeral
+  unlock_detector:
+    :path: Flutter/ephemeral/.symlinks/plugins/unlock_detector/macos
 
 SPEC CHECKSUMS:
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  unlock_detector: 32c966820074be887de5130716fac0a945665f46
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 

@@ -1,5 +1,15 @@
 # CHANGES
 
+## 1.2.0
+
+- **Native desktop support** — macOS, Windows and Linux now ship native plugin
+  code with **system-wide idle detection**: when `initialize()` is given an
+  `idleTimeout`, the `idle` status follows the OS idle time (time since any
+  keyboard/mouse input) — no `reportActivity()` needed on desktop.
+  - macOS: IOKit HID idle time · Windows: `GetLastInputInfo` · Linux: the X11
+    screensaver extension (needs `libxss-dev`; X11 sessions).
+- All six platforms are now declared with native implementations in `pubspec.yaml`.
+
 ## 1.1.1
 
 - Web & desktop: window **blur** (lost focus) is now reported as `background`
