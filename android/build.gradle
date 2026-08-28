@@ -1,5 +1,5 @@
-group = "com.example.unlock_detector"
-version = "1.2.0"
+group = "com.mustafa707.unlock_detector"
+version = "1.3.0"
 
 buildscript {
     ext.kotlin_version = "2.3.21"
@@ -25,7 +25,7 @@ apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 android {
-    namespace = "com.example.unlock_detector"
+    namespace = "com.mustafa707.unlock_detector"
     compileSdk = 36
 
     compileOptions {

@@ -41,11 +41,18 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 
-# X11 screensaver extension — used to read the system-wide idle time.
+# X11 screensaver extension — the idle-time source on X11 sessions.
 # Requires the libxss-dev (libxss) development package to be installed.
 find_package(X11 REQUIRED)
 target_include_directories(${PLUGIN_NAME} PRIVATE ${X11_INCLUDE_DIR})
 target_link_libraries(${PLUGIN_NAME} PRIVATE ${X11_LIBRARIES} ${X11_Xss_LIB})
+
+# GIO — the D-Bus client used to read the compositor's idle time on Wayland.
+# GTK pulls it in transitively, but it is linked explicitly so the dependency
+# does not silently disappear if that ever changes.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-2.0)
+target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GIO)
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an

@@ -38,10 +38,18 @@ idle time; on mobile and web it follows in-app interaction (see below).
 
 ```yaml
 dependencies:
-  unlock_detector: ^1.1.0
+  unlock_detector: ^1.3.0
 ```
 
+Requires Flutter 3.13 or newer (Dart 3.1).
+
 iOS works with both CocoaPods and Swift Package Manager — no setup needed.
+
+On Linux, building needs the X11 screensaver headers — `libxss-dev` on Debian
+and Ubuntu, `libXScrnSaver-devel` on Fedora. That extension is the idle-time
+source on X11 sessions; under Wayland it cannot see native input, so the
+compositor is asked over D-Bus instead (GNOME/Mutter and the freedesktop
+screensaver interface are both supported).
 
 ## Usage
 

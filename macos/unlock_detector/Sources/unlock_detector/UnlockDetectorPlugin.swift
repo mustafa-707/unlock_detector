@@ -22,12 +22,25 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  /// The IOKit main port.
+  ///
+  /// `kIOMasterPortDefault` was renamed to `kIOMainPortDefault` in macOS 12 and
+  /// is deprecated. Both are `MACH_PORT_NULL`, which IOKit reads as "use the
+  /// default port", so the fallback spells out the value rather than naming the
+  /// deprecated constant and warning on every build.
+  private var ioMainPort: mach_port_t {
+    if #available(macOS 12.0, *) {
+      return kIOMainPortDefault
+    }
+    return mach_port_t(MACH_PORT_NULL)
+  }
+
   /// Seconds since the last system-wide keyboard or mouse input, read from the
   /// IOKit HID system. Returns 0 if it cannot be determined.
   private func systemIdleSeconds() -> Int {
     var iterator: io_iterator_t = 0
     guard IOServiceGetMatchingServices(
-      kIOMasterPortDefault,
+      ioMainPort,
       IOServiceMatching("IOHIDSystem"),
       &iterator
     ) == KERN_SUCCESS else {
@@ -42,7 +55,9 @@ public class UnlockDetectorPlugin: NSObject, FlutterPlugin {
     var properties: Unmanaged<CFMutableDictionary>?
     guard IORegistryEntryCreateCFProperties(entry, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS,
           let dict = properties?.takeRetainedValue() as? [String: Any],
-          let idleNanos = dict["HIDIdleTime"] as? Int64 else {
+          // HIDIdleTime comes back as a CFNumber whose concrete width varies;
+          // going through NSNumber avoids a failed bridge to a fixed type.
+          let idleNanos = (dict["HIDIdleTime"] as? NSNumber)?.uint64Value else {
       return 0
     }
     return Int(idleNanos / 1_000_000_000)

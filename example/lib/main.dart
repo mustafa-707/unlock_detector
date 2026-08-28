@@ -1,10 +1,20 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:unlock_detector/unlock_detector.dart';
 
+/// How long the user may be inactive before the status becomes `idle`.
+///
+/// On desktop this is compared against the system-wide idle time reported by
+/// the OS. On mobile and web it is an in-app timer fed by
+/// [UnlockDetector.reportActivity], which [UnlockDetector.activityDetector]
+/// wires up for us in [main].
+const _idleTimeout = Duration(seconds: 15);
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const OnlineStatusApp());
+  runApp(UnlockDetector.activityDetector(child: const OnlineStatusApp()));
 }
 
 class OnlineStatusApp extends StatelessWidget {
@@ -39,9 +49,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   UnlockDetectorStatus _status = UnlockDetectorStatus.unknown;
-  bool _isOnline = false;
   final List<StatusLog> _logs = [];
   StreamSubscription<UnlockDetectorStatus>? _subscription;
+  bool _deviceLocked = false;
 
   @override
   void initState() {
@@ -51,62 +61,85 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initialize() async {
     try {
-      await UnlockDetector.initialize();
+      await UnlockDetector.initialize(idleTimeout: _idleTimeout);
 
       _subscription = UnlockDetector.stream.listen((status) {
+        if (!mounted) return;
         setState(() {
           _status = status;
-          _isOnline = status.isOnline;
-
-          // Add to log
           _logs.insert(0, StatusLog(status: status, timestamp: DateTime.now()));
           if (_logs.length > 10) _logs.removeLast();
         });
 
-        // Here you would update your backend
+        // Here you would update your backend.
         _updateBackendStatus(status);
       });
+
+      // One-shot query, separate from the stream: reliable on Android,
+      // best-effort on iOS, always false elsewhere.
+      final locked = await UnlockDetector.isDeviceLocked();
+      if (mounted) setState(() => _deviceLocked = locked);
     } catch (e) {
       debugPrint('Failed to initialize: $e');
     }
   }
 
   void _updateBackendStatus(UnlockDetectorStatus status) {
-    // Example: Update user's online status in your backend
     if (status.isOnline) {
-      debugPrint('📱 USER ONLINE - Update backend: user is active');
+      debugPrint('📱 USER ONLINE — update backend: user is active');
       // await api.updateUserStatus(userId, online: true);
+    } else if (status.isIdle) {
+      debugPrint('🕒 USER IDLE — update backend: away from keyboard');
+      // await api.updateUserStatus(userId, away: true);
     } else if (status.isOffline) {
-      debugPrint('💤 USER OFFLINE - Update backend: user is away');
+      debugPrint('💤 USER OFFLINE — update backend: user is away');
       // await api.updateUserStatus(userId, online: false);
     }
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
-    UnlockDetector.dispose();
+    unawaited(_subscription?.cancel());
+    unawaited(UnlockDetector.dispose());
     super.dispose();
+  }
+
+  /// The platform this build is running on — the plugin behaves differently on
+  /// each, so the example names the real one rather than guessing.
+  String get _platformLabel {
+    if (kIsWeb) return 'Web';
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'Android',
+      TargetPlatform.iOS => 'iOS',
+      TargetPlatform.macOS => 'macOS',
+      TargetPlatform.windows => 'Windows',
+      TargetPlatform.linux => 'Linux',
+      TargetPlatform.fuchsia => 'Fuchsia',
+    };
   }
 
   @override
   Widget build(BuildContext context) {
+    final presence = _PresenceStyle.of(_status);
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: _isOnline
-                ? [Colors.green.shade50, Colors.white]
-                : [Colors.grey.shade200, Colors.white],
+            colors: [
+              presence.color.withValues(alpha: .18),
+              scheme.surface,
+            ],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
               const SizedBox(height: 40),
-              _buildStatusIndicator(),
+              _buildStatusIndicator(presence),
               const SizedBox(height: 40),
               _buildInfoCards(),
               const SizedBox(height: 20),
@@ -118,7 +151,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildStatusIndicator() {
+  Widget _buildStatusIndicator(_PresenceStyle presence) {
+    final theme = Theme.of(context);
+
     return Column(
       children: [
         Container(
@@ -126,37 +161,30 @@ class _HomePageState extends State<HomePage> {
           height: 120,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _isOnline ? Colors.green : Colors.grey.shade400,
+            color: presence.color,
             boxShadow: [
               BoxShadow(
-                color: (_isOnline ? Colors.green : Colors.grey).withValues(
-                  alpha: .3,
-                ),
+                color: presence.color.withValues(alpha: .3),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
             ],
           ),
-          child: Icon(
-            _isOnline ? Icons.check_circle : Icons.brightness_2,
-            size: 60,
-            color: Colors.white,
-          ),
+          child: Icon(presence.icon, size: 60, color: Colors.white),
         ),
         const SizedBox(height: 16),
         Text(
-          _isOnline ? 'ONLINE' : 'OFFLINE',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: _isOnline ? Colors.green.shade700 : Colors.grey.shade700,
-              ),
+          presence.headline,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: presence.color,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          _getStatusMessage(),
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+          presence.message,
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -168,15 +196,12 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: [
-          Expanded(
-            child: _buildInfoCard('Current', _status.name.toUpperCase()),
-          ),
+          Expanded(child: _buildInfoCard('Current', _status.name.toUpperCase())),
+          const SizedBox(width: 12),
+          Expanded(child: _buildInfoCard('Platform', _platformLabel)),
           const SizedBox(width: 12),
           Expanded(
-            child: _buildInfoCard(
-              'Platform',
-              UnlockDetector.isAndroid ? 'Android' : 'iOS',
-            ),
+            child: _buildInfoCard('Device', _deviceLocked ? 'LOCKED' : 'OPEN'),
           ),
         ],
       ),
@@ -184,29 +209,28 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildInfoCard(String label, String value) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 10),
-        ],
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -214,11 +238,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRecentLogs() {
+    final theme = Theme.of(context);
+
     if (_logs.isEmpty) {
       return Center(
         child: Text(
           'Waiting for status changes...',
-          style: TextStyle(color: Colors.grey.shade500),
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
         ),
       );
     }
@@ -230,10 +256,10 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
             'RECENT ACTIVITY',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.grey.shade600,
-                  letterSpacing: 1.2,
-                ),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -241,10 +267,7 @@ class _HomePageState extends State<HomePage> {
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             itemCount: _logs.length,
-            itemBuilder: (context, index) {
-              final log = _logs[index];
-              return _buildLogItem(log);
-            },
+            itemBuilder: (context, index) => _buildLogItem(_logs[index]),
           ),
         ),
       ],
@@ -252,46 +275,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLogItem(StatusLog log) {
+    final theme = Theme.of(context);
+    final presence = _PresenceStyle.of(log.status);
     final timeStr = '${log.timestamp.hour.toString().padLeft(2, '0')}:'
         '${log.timestamp.minute.toString().padLeft(2, '0')}:'
         '${log.timestamp.second.toString().padLeft(2, '0')}';
-
-    Color color;
-    IconData icon;
-
-    switch (log.status) {
-      case UnlockDetectorStatus.foreground:
-        color = Colors.green;
-        icon = Icons.phone_android;
-        break;
-      case UnlockDetectorStatus.background:
-        color = Colors.orange;
-        icon = Icons.minimize;
-        break;
-      case UnlockDetectorStatus.locked:
-        color = Colors.red;
-        icon = Icons.lock;
-        break;
-      case UnlockDetectorStatus.unlocked:
-        color = Colors.blue;
-        icon = Icons.lock_open;
-        break;
-      default:
-        color = Colors.grey;
-        icon = Icons.help;
-    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: .3)),
+        border: Border.all(color: presence.color.withValues(alpha: .4)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
+          Icon(presence.icon, color: presence.color, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -301,32 +301,81 @@ class _HomePageState extends State<HomePage> {
           ),
           Text(
             timeStr,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
     );
   }
+}
 
-  String _getStatusMessage() {
-    switch (_status) {
-      case UnlockDetectorStatus.foreground:
-        return 'User is actively using the app';
-      case UnlockDetectorStatus.background:
-        return 'User switched to another app';
-      case UnlockDetectorStatus.locked:
-        return 'Device is locked';
-      case UnlockDetectorStatus.unlocked:
-        return 'Device was unlocked';
-      default:
-        return 'Detecting status...';
-    }
+/// How one status is presented — colour, icon and copy in a single place, so
+/// every status the plugin can emit is covered exactly once.
+class _PresenceStyle {
+  const _PresenceStyle({
+    required this.color,
+    required this.icon,
+    required this.headline,
+    required this.message,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String headline;
+  final String message;
+
+  static _PresenceStyle of(UnlockDetectorStatus status) {
+    return switch (status) {
+      UnlockDetectorStatus.foreground => const _PresenceStyle(
+          color: Colors.green,
+          icon: Icons.check_circle,
+          headline: 'ONLINE',
+          message: 'User is actively using the app',
+        ),
+      UnlockDetectorStatus.idle => const _PresenceStyle(
+          color: Colors.amber,
+          icon: Icons.hourglass_bottom,
+          headline: 'IDLE',
+          message: 'App is open, but there has been no input',
+        ),
+      UnlockDetectorStatus.background => const _PresenceStyle(
+          color: Colors.orange,
+          icon: Icons.minimize,
+          headline: 'OFFLINE',
+          message: 'User switched to another app or window',
+        ),
+      UnlockDetectorStatus.locked => const _PresenceStyle(
+          color: Colors.red,
+          icon: Icons.lock,
+          headline: 'OFFLINE',
+          message: 'Device screen is off or locked',
+        ),
+      UnlockDetectorStatus.unlocked => const _PresenceStyle(
+          color: Colors.blue,
+          icon: Icons.lock_open,
+          headline: 'UNLOCKED',
+          message: 'Device was just unlocked',
+        ),
+      UnlockDetectorStatus.screenOn => const _PresenceStyle(
+          color: Colors.indigo,
+          icon: Icons.light_mode,
+          headline: 'SCREEN ON',
+          message: 'Screen turned on — it may still be locked',
+        ),
+      UnlockDetectorStatus.unknown => const _PresenceStyle(
+          color: Colors.grey,
+          icon: Icons.help,
+          headline: 'UNKNOWN',
+          message: 'Detecting status...',
+        ),
+    };
   }
 }
 
 class StatusLog {
+  StatusLog({required this.status, required this.timestamp});
+
   final UnlockDetectorStatus status;
   final DateTime timestamp;
-
-  StatusLog({required this.status, required this.timestamp});
 }

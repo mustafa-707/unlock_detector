@@ -112,6 +112,12 @@ class UnlockDetector {
   );
 
   static bool _isInitialized = false;
+
+  /// True from the moment [initialize] starts wiring listeners until
+  /// [_releaseResources] tears them down. Gates [_emit] so nothing is
+  /// delivered after teardown, while still letting native events that arrive
+  /// during initialization through.
+  static bool _active = false;
   static StreamSubscription? _nativeSubscription;
   static AppLifecycleListener? _lifecycleListener;
   static final _controller = StreamController<UnlockDetectorStatus>.broadcast();
@@ -155,6 +161,7 @@ class UnlockDetector {
       return;
     }
     _idleTimeout = idleTimeout;
+    _active = true;
 
     try {
       // Foreground / background — plain Dart, works on every platform.
@@ -193,29 +200,25 @@ class UnlockDetector {
         _startIdlePolling();
       }
     } on PlatformException catch (e) {
+      await _releaseResources();
       throw UnlockDetectorException('Failed to initialize: ${e.message}', e);
     } catch (e) {
+      await _releaseResources();
       throw UnlockDetectorException('Failed to initialize', e);
     }
   }
 
   /// Stops detection and releases resources. Safe to call multiple times.
+  ///
+  /// [stream] itself stays open, so the detector can be re-[initialize]d later
+  /// without existing listeners being dropped.
   static Future<void> dispose() async {
     if (!_isInitialized) {
       log('[unlock_detector] Already disposed or never initialized');
       return;
     }
 
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _idlePollTimer?.cancel();
-    _idlePollTimer = null;
-    await _nativeSubscription?.cancel();
-    _nativeSubscription = null;
-    _lifecycleListener?.dispose();
-    _lifecycleListener = null;
-    _currentStatus = null;
-    _isInitialized = false;
+    await _releaseResources();
 
     try {
       await _methodChannel.invokeMethod('detect_off');
@@ -227,12 +230,32 @@ class UnlockDetector {
     log('[unlock_detector] Disposed');
   }
 
+  /// Tears down every listener and timer and clears the cached state.
+  ///
+  /// Shared by [dispose] and by [initialize]'s error path, so a failed
+  /// initialization cannot leave a half-wired listener behind that the next
+  /// [initialize] call would then duplicate.
+  static Future<void> _releaseResources() async {
+    _active = false;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _stopIdlePolling();
+    final subscription = _nativeSubscription;
+    _nativeSubscription = null;
+    await subscription?.cancel();
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
+    _currentStatus = null;
+    _idleTimeout = null;
+    _isInitialized = false;
+  }
+
   /// Reports user interaction, resetting the idle timer.
   ///
   /// Only relevant when [initialize] was given an `idleTimeout`. Call it from
   /// your input handling, or use [activityDetector] to wire it automatically.
   static void reportActivity() {
-    if (_idleTimeout == null) return;
+    if (!_active || _idleTimeout == null) return;
     if (_currentStatus == UnlockDetectorStatus.idle) {
       _emit(UnlockDetectorStatus.foreground);
     }
@@ -304,11 +327,13 @@ class UnlockDetector {
         // Window focused / app in the foreground.
         _emit(UnlockDetectorStatus.foreground);
         _armIdleTimer();
+        _startIdlePolling();
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
         // App hidden / window minimized.
         _idleTimer?.cancel();
+        _stopIdlePolling();
         _emit(UnlockDetectorStatus.background);
       case AppLifecycleState.inactive:
         // On web and desktop, 'inactive' means the window lost focus — treat
@@ -316,6 +341,7 @@ class UnlockDetector {
         // call, app switcher, control center), so it is ignored there.
         if (_isDesktopOrWeb) {
           _idleTimer?.cancel();
+          _stopIdlePolling();
           _emit(UnlockDetectorStatus.background);
         }
     }
@@ -330,9 +356,13 @@ class UnlockDetector {
   }
 
   /// Starts polling the OS for system-wide idle time (desktop only).
+  ///
+  /// Polling runs only while the window has focus: asking the OS for idle time
+  /// while the app is in the background tells us nothing new — the status is
+  /// already `background` — and the periodic wake-ups cost battery.
   static void _startIdlePolling() {
     final timeout = _idleTimeout;
-    if (timeout == null) return;
+    if (timeout == null || !_isDesktop) return;
     _idlePollTimer?.cancel();
     final interval = timeout < const Duration(seconds: 60)
         ? const Duration(seconds: 5)
@@ -341,12 +371,20 @@ class UnlockDetector {
     _pollSystemIdle();
   }
 
+  /// Stops the desktop idle poll — on focus loss and on teardown.
+  static void _stopIdlePolling() {
+    _idlePollTimer?.cancel();
+    _idlePollTimer = null;
+  }
+
   /// Compares OS idle time against [_idleTimeout] and emits `idle` /
   /// `foreground` accordingly. Only acts while the app is in the foreground.
   static Future<void> _pollSystemIdle() async {
     final timeout = _idleTimeout;
     if (timeout == null) return;
     final idleSeconds = await _systemIdleSeconds();
+    // The await above can outlive dispose() — drop late results.
+    if (!_active) return;
     final isIdleNow = idleSeconds >= timeout.inSeconds;
     if (isIdleNow && _currentStatus == UnlockDetectorStatus.foreground) {
       _emit(UnlockDetectorStatus.idle);
@@ -368,7 +406,9 @@ class UnlockDetector {
   }
 
   static void _emit(UnlockDetectorStatus status) {
-    if (status == UnlockDetectorStatus.unknown || status == _currentStatus) {
+    if (!_active ||
+        status == UnlockDetectorStatus.unknown ||
+        status == _currentStatus) {
       return;
     }
     _currentStatus = status;

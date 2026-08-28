@@ -1,4 +1,4 @@
-package com.example.unlock_detector
+package com.mustafa707.unlock_detector
 
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
@@ -91,7 +91,7 @@ class UnlockDetectorPlugin : FlutterPlugin, MethodCallHandler {
 
     /** Returns whether the keyguard (lock screen) is currently showing. */
     private fun isDeviceLocked(): Boolean {
-        val keyguard = context?.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager?
+        val keyguard = context?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         return keyguard?.isKeyguardLocked ?: false
     }
 
@@ -111,6 +111,9 @@ class UnlockDetectorPlugin : FlutterPlugin, MethodCallHandler {
         unregisterReceiver()
         channel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
+        // setStreamHandler(null) does not invoke onCancel, so the sink would
+        // otherwise outlive the engine it belongs to.
+        eventSink = null
         context = null
     }
 }

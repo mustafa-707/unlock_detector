@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'unlock_detector'
-  s.version          = '1.2.0'
+  s.version          = '1.3.0'
   s.summary          = 'Flutter plugin for detecting device lock/unlock and app foreground/background events.'
   s.description      = <<-DESC
 A Flutter plugin that detects device lock/unlock and app foreground/background

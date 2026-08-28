@@ -1,6 +1,6 @@
 PODS:
   - FlutterMacOS (1.0.0)
-  - unlock_detector (1.2.0):
+  - unlock_detector (1.3.0):
     - FlutterMacOS
 
 DEPENDENCIES:
@@ -14,9 +14,9 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/unlock_detector/macos
 
 SPEC CHECKSUMS:
-  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
-  unlock_detector: 32c966820074be887de5130716fac0a945665f46
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  unlock_detector: 1adc3e35e29da8c85e5729ca543be51e230eb542
 
-PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
+PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.17.0

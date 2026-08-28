@@ -4,6 +4,15 @@
 # The lint set provided by `flutter_lints` encourages good coding practices for
 # Flutter packages and plugins. See https://dart.dev/lints for the full list.
 
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 include: package:flutter_lints/flutter.yaml
 
 # Additional information about this file can be found at

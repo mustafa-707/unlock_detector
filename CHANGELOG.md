@@ -1,5 +1,50 @@
 # CHANGES
 
+## 1.3.0
+
+### Fixed
+
+- **Idle could fire after `dispose()`** — `dispose()` now clears the idle
+  timeout, and every status emission is gated on the detector being active, so
+  a late `reportActivity()` or an in-flight OS idle poll can no longer push a
+  status onto the stream after teardown.
+- **A failed `initialize()` leaked its listeners** — the lifecycle listener and
+  the native event subscription are now torn down on the error path. Retrying
+  after a failure previously left a second subscription behind, which delivered
+  every native event twice.
+- **Desktop idle polling ran in the background** — the OS idle poll now stops
+  when the window loses focus and restarts when it regains focus, instead of
+  waking every few seconds for a status that cannot change.
+- **Linux: idle detection did not work on Wayland.** The X11 screensaver
+  extension only sees XWayland input, so the reported idle time never grew.
+  The compositor is now queried over D-Bus (GNOME/Mutter, and the freedesktop
+  screensaver interface used by KDE), with X11 kept as the source on X11
+  sessions. The X11 display is also opened once instead of per poll.
+- **macOS:** replaced the deprecated `kIOMasterPortDefault` with
+  `kIOMainPortDefault` on macOS 12+, and read `HIDIdleTime` through `NSNumber`
+  so a differently-sized `CFNumber` no longer silently reports zero idle time.
+- **Android:** the event sink is released when the engine detaches, and the
+  `KeyguardManager` lookup uses a checked cast.
+- **`pubspec.yaml` declared `flutter: ">=3.0.0"`** but the plugin uses
+  `AppLifecycleListener` and `AppLifecycleState.hidden`; the constraint is now
+  `>=3.13.0` (Dart `>=3.1.0`), so an incompatible version fails at resolve time
+  rather than at compile time.
+
+### Changed
+
+- The Android package moved from `com.example.unlock_detector` to
+  `com.mustafa707.unlock_detector`. Flutter registers the plugin automatically,
+  so no app-side change is needed unless you referenced the class by name.
+
+### Added
+
+- A unit-test suite covering status parsing, the initialize/dispose handshake,
+  event de-duplication, idle behavior, and the teardown fixes above.
+- The example app now demonstrates `idleTimeout`, `activityDetector` and
+  `isDeviceLocked`, names the real platform it runs on (it previously reported
+  every non-Android platform as iOS), covers the `idle` and `screenOn`
+  statuses, and follows the light/dark theme instead of hard-coding white.
+
 ## 1.2.0
 
 - **Native desktop support** — macOS, Windows and Linux now ship native plugin
