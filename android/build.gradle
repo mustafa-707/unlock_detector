@@ -1,28 +1,13 @@
 group = "com.mustafa707.unlock_detector"
-version = "1.3.0"
+version = "1.4.0"
 
-buildscript {
-    ext.kotlin_version = "2.3.21"
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.11.1")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
+// No buildscript block and no Kotlin Gradle Plugin.
+//
+// Kotlin comes from AGP's built-in support (AGP 9+), and the Android Gradle
+// Plugin itself is supplied by the consuming app's build. Declaring either one
+// here would put this plugin's chosen version on the app's build classpath and
+// silently force it on every other module.
 apply plugin: "com.android.library"
-apply plugin: "kotlin-android"
 
 android {
     namespace = "com.mustafa707.unlock_detector"

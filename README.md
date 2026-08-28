@@ -38,10 +38,26 @@ idle time; on mobile and web it follows in-app interaction (see below).
 
 ```yaml
 dependencies:
-  unlock_detector: ^1.3.0
+  unlock_detector: ^1.4.0
 ```
 
-Requires Flutter 3.13 or newer (Dart 3.1).
+Requires Flutter 3.44 or newer (Dart 3.12). The Android side uses AGP's
+[built-in Kotlin](https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin),
+so it no longer applies the Kotlin Gradle Plugin — your app needs AGP 9+.
+Stay on `1.3.x` if you are on an older Flutter.
+
+One wrinkle worth knowing, and it is not specific to this plugin: AGP 9's
+built-in Kotlin resolves KGP `2.2.10`, which is below the `2.2.20` Flutter 3.47
+requires, so the build stops with *"Your project's Kotlin version is lower than
+Flutter's minimum supported version"*. Raise it in your app's
+`android/settings.gradle` — declared, never applied:
+
+```groovy
+plugins {
+    id "com.android.application" version "9.3.2" apply false
+    id "org.jetbrains.kotlin.android" version "2.4.10" apply false
+}
+```
 
 iOS works with both CocoaPods and Swift Package Manager — no setup needed.
 

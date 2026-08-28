@@ -1,5 +1,27 @@
 # CHANGES
 
+## 1.4.0
+
+**Breaking:** the minimum supported version is now Flutter 3.44 / Dart 3.12,
+and your app must build with Android Gradle Plugin 9 or newer. Stay on `1.3.x`
+if you cannot move yet.
+
+- **Migrated to built-in Kotlin** ([#5]) — the plugin no longer applies the
+  Kotlin Gradle Plugin. From Flutter 3.47, an app using a plugin that applies
+  KGP prints a `flutter doctor` warning, and future Flutter versions fail the
+  build outright. Kotlin now comes from AGP's built-in support.
+- The plugin's `buildscript` block is gone with it. It pinned its own AGP and
+  Kotlin versions onto the consuming app's build classpath, where the highest
+  version across the build wins — so the plugin could quietly force an AGP
+  upgrade on an app that never asked for one. Both now come from the app.
+- The example app moves to AGP 9.3.2, Gradle 9.7.1, Kotlin 2.4.10 and
+  `android.builtInKotlin=true`.
+- Note for apps: AGP 9's built-in Kotlin resolves KGP 2.2.10, below Flutter
+  3.47's 2.2.20 minimum, so the build fails until you declare a newer KGP in
+  your app's `settings.gradle` with `apply false`. See the README.
+
+[#5]: https://github.com/mustafa-707/unlock_detector/issues/5
+
 ## 1.3.0
 
 ### Fixed
